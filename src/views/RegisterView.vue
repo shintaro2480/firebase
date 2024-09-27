@@ -24,6 +24,25 @@
                 <input type="password" v-model="password" class="text-xl w-3/5 p-3 border rounded"
                   placeholder="パスワード" />
               </div>
+
+              <!-- プロフィール画像のアップロード -->
+<!--               <div class="mb-2">
+                <input type="file" @change="handleFileChange" accept="image/*" class="text-xl w-3/5 p-3 border rounded" />
+              </div>
+            -->
+
+              <div v-if="errors.length">
+                <ul class="my-4">
+                  <li
+                    v-for="(error, index) in errors"
+                    :key="index"
+                    class="font-semibold text-red-700"
+                  >
+                    {{ error }}
+                  </li>
+                </ul>
+              </div>
+
               <button type="submit" class="text-xl w-3/5 bg-green-800 text-white py-2 rounded">ユーザの登録</button>
             </form>
           </div>
@@ -34,25 +53,46 @@
 </template>
 
 <script>
-import { auth } from "../firebase"; // firebase.jsからインポート
+//import { auth, storage } from "../firebase"; // firebase.jsからインポート
 import { createUserWithEmailAndPassword } from "firebase/auth"; // Firebaseの新規ユーザ作成メソッドをインポート
-
+//import { ref } from 'vue'; // Vue 3のrefをインポート
+import { ref, set } from "firebase/database";
+import { auth, db } from "../firebase";
 
 export default {
   data() {
     return {
       email: "",
-      password: ""
+      password: "",
+      profileImage: null, // プロフィール画像を保存する変数
+      errors: []
     };
   },
   methods: {
+
     async registerUser() {
+      console.log(this.email);
+      console.log(this.password);
       try {
-        const userCredential = await createUserWithEmailAndPassword(auth, this.email, this.password);
-        console.log(userCredential);
+        const response = await createUserWithEmailAndPassword(auth, this.email, this.password);
+        const user = response.user;
+        
+        console.log(user);
+
+      // Realtime Databaseにユーザー情報を保存
+      await set(ref(db, `users/${user.uid}`), {
+        user_id: user.uid,
+        email: user.email
+      });
+
         this.$router.push("/");
-      } catch (error) {
-        console.error("Error during registration:", error.message);
+      } catch (e) {
+        console.log(e);
+        if (e.code == "auth/email-already-in-use") {
+          this.errors.push("入力したメールアドレスは登録済みです。");
+        } else {
+          this.errors.push("入力したメールアドレスかパスワードに問題があります。");
+        }
       }
     }
   }
